@@ -219,8 +219,8 @@
     // --- עזר ---
     function newId(){ return String(Date.now()); }
     function today(offsetDays=0){ const d=new Date(); d.setDate(d.getDate()+offsetDays); return d.toISOString().slice(0,10); }
-    const escapeHtml = s=> String(s).replace(/[&<>\"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
-    const escapeAttr = s=> escapeHtml(s).replace(/"/g,'&quot;');
+    const escapeHtml = s=> String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+    const escapeAttr = s=> escapeHtml(s).replace(/\"/g,'&quot;');
 
     // --- המרות ---
     function toGanttData(rows){
@@ -267,11 +267,23 @@
       tb.querySelectorAll('button[data-act]')?.forEach(b=>b.addEventListener('click', onRowAction));
     }
 
+    // --- פעולות שורה ---
+    function onRowAction(e){
+      const id = e.currentTarget.getAttribute('data-id');
+      const act = e.currentTarget.getAttribute('data-act');
+      if(act==='del'){
+        if(confirm('למחוק את המשימה?')){ tasks = tasks.filter(t=>t.id!==id); const ok = saveTasks(tasks); applyFilters(); if(!ok){ alert('שמירה קבועה נחסמה — מוריד גיבוי JSON.'); exportJSON('tasks-backup.json'); } }
+        return;
+      }
+      if(act==='edit'){ openTaskDialog(tasks.find(t=>t.id===id)); }
+    }
+
     // --- פילטרים ---
     function applyFilters(){
       const domains=[...document.querySelectorAll('.flt-domain:checked')].map(x=>x.value);
       const classes=[...document.querySelectorAll('.flt-class:checked')].map(x=>x.value);
-      const from=document.getElementById('dateFrom').value; const to=document.getElementById('dateTo').value;
+      const from=document.getElementById('dateFrom')?.value || '';
+      const to=document.getElementById('dateTo')?.value || '';
       let rows=tasks.filter(t=>domains.includes(t.domain));
       rows=rows.filter(t=>!t.className || classes.includes(t.className));
       if(from){ rows=rows.filter(t=>t.end>=from); }
