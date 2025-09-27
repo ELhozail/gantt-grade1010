@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>לוח גאנט שכבה י׳ – משימות, פילטרים וייצוא</title>
+  <!-- Frappe Gantt CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/frappe-gantt/dist/frappe-gantt.css" />
+  <style>
+    :root{
+      --bg:#0b1020; --card:#121935; --muted:#94a3b8; --text:#e5e7eb;
+      --accent:#22c55e; --danger:#ef4444; --primary:#60a5fa; --chip:#1f2a4a;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text)}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0)); position:sticky; top:0; backdrop-filter:saturate(120%) blur(6px); z-index:10}
+    header h1{margin:0;font-size:20px; font-weight:700}
+    .controls{display:flex;flex-wrap:wrap;gap:8px}
+    .btn{padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.08); background:#1b2545;color:var(--text);cursor:pointer}
+    .btn:hover{filter:brightness(1.1)}
+    .btn.primary{background:var(--primary);color:#0b1020;border-color:transparent}
+    .btn.success{background:var(--accent);color:#04131a}
+    .btn.danger{background:var(--danger)}
+    .btn.ghost{background:transparent;border-color:rgba(255,255,255,.15)}
+
+    main{padding:14px}
+    .panel{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:16px; padding:14px; box-shadow:0 10px 30px rgba(0,0,0,.2)}
+    .grid{display:grid; grid-template-columns:1fr; gap:14px}
+    @media(min-width:1100px){.grid{grid-template-columns:1fr 1fr}}
+
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip); padding:6px 10px; border-radius:999px; font-size:12px; border:1px solid rgba(255,255,255,.08)}
+    .chip input{accent-color:#7dd3fc}
+    .muted{color:var(--muted); font-size:12px}
+    .range{display:flex;align-items:center;gap:8px}
+
+    #gantt{width:100%; overflow:auto; background:#0e1733; border-radius:12px; border:1px solid rgba(255,255,255,.06)}
+    .gantt .bar-progress{opacity:.95}
+
+    table{width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,.08)}
+    thead th{background:#0e1733; padding:10px; text-align:right; font-size:12px; color:var(--muted); position:sticky; top:0}
+    tbody td{padding:10px; border-top:1px solid rgba(255,255,255,.06)}
+    tbody tr:hover{background:rgba(255,255,255,.02)}
+    .badge{padding:4px 8px;border-radius:999px; font-size:12px; font-weight:600; display:inline-flex; gap:6px; align-items:center}
+    .status-מתוכנן{background:#0b3a2a;color:#a7f3d0}
+    .status-בהכנות{background:#2a243a;color:#ddd6fe}
+    .status-בתהליך{background:#1e3a8a;color:#bfdbfe}
+    .status-הושלם{background:#113314;color:#bbf7d0}
+    .status-מוקפא{background:#3a1f1f;color:#fecaca}
+    .domain{background:#1e293b;border:1px solid rgba(255,255,255,.06)}
+    .pill{padding:2px 6px;border-radius:999px; border:1px dashed rgba(255,255,255,.2)}
+    footer{color:var(--muted); font-size:12px; text-align:center; padding:12px}
+  </style>
+</head>
+<body>
+  <header>
+    <div id="saveModeBadge" class="chip" style="position:fixed; left:12px; top:12px; z-index:20; display:none"></div>
+    <h1>לוח גאנט – שכבה י׳</h1>
+    <div class="controls">
+      <button class="btn primary" id="btnAdd">➕ הוסף משימה</button>
+      <button class="btn" id="btnExport">📤 יצוא JSON</button>
+      <button class="btn" id="btnImport">📥 יבוא JSON</button>
+      <input type="file" id="fileInput" class="hidden" accept="application/json" />
+      <button class="btn ghost" id="btnReset">♻️ אפס לדוגמה</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div class="toolbar">
+        <span class="muted">סינון לפי תחום:</span>
+        <label class="chip"><input type="checkbox" class="flt-domain" value="פדגוגי" checked>פדגוגי</label>
+        <label class="chip"><input type="checkbox" class="flt-domain" value="טכנולוגי" checked>טכנולוגי</label>
+        <label class="chip"><input type="checkbox" class="flt-domain" value="קהילתי" checked>קהילתי</label>
+        <label class="chip"><input type="checkbox" class="flt-domain" value="מוסדי" checked>מוסדי</label>
+        <label class="chip"><input type="checkbox" class="flt-domain" value="חברתי" checked>חברתי</label>
+        <span class="muted" style="margin-inline-start:12px">כיתות י׳:</span>
+        <label class="chip"><input type="checkbox" class="flt-class" value="י1" checked>י׳1</label>
+        <label class="chip"><input type="checkbox" class="flt-class" value="י2" checked>י׳2</label>
+        <label class="chip"><input type="checkbox" class="flt-class" value="י3" checked>י׳3</label>
+        <label class="chip"><input type="checkbox" class="flt-class" value="י4" checked>י׳4</label>
+        <label class="chip"><input type="checkbox" class="flt-class" value="י5" checked>י׳5</label>
+        <label class="chip"><input type="checkbox" class="flt-class" value="י6" checked>י׳6</label>
+        <span class="muted" style="margin-inline-start:12px">טווח תאריכים:</span>
+        <div class="range">
+          <input id="dateFrom" type="date" />
+          <span class="muted">עד</span>
+          <input id="dateTo" type="date" />
+          <button class="btn ghost" id="btnClearDates">נקה</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="addFormPanel">
+      <h3 style="margin:6px 0 12px 0">הוספת משימה (ללא חלון קופץ)</h3>
+      <form id="addForm" style="display:grid; gap:10px">
+        <div style="display:grid; gap:8px">
+          <label>שם המשימה <input name="title" required style="width:100%" /></label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <label>תחום
+              <select name="domain">
+                <option>פדגוגי</option>
+                <option>טכנולוגי</option>
+                <option>קהילתי</option>
+                <option>מוסדי</option>
+                <option>חברתי</option>
+              </select>
+            </label>
+            <label>כיתה
+              <select name="className">
+                <option>י1</option><option>י2</option><option>י3</option>
+                <option>י4</option><option>י5</option><option>י6</option>
+              </select>
+            </label>
+            <label>סטטוס
+              <select name="status">
+                <option>מתוכנן</option>
+                <option>בהכנות</option>
+                <option>בתהליך</option>
+                <option>הושלם</option>
+                <option>מוקפא</option>
+              </select>
+            </label>
+            <label>אחראי <input name="owner" /></label>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <label>התחלה <input type="date" name="start" required /></label>
+            <label>סיום <input type="date" name="end" required /></label>
+            <label>התקדמות (%) <input type="number" name="progress" min="0" max="100" value="0" /></label>
+            <label>KPI <input name="kpi" /></label>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px">
+          <button class="btn success" type="submit">שמור משימה</button>
+          <button class="btn ghost" type="button" id="btnClearForm">נקה טופס</button>
+        </div>
+        <div class="muted">טופס זה עוקף בעיות מודאל בדפדפנים/מכשירים מסוימים.</div>
+      </form>
+    </section>
+
+    <div class="grid">
+      <section class="panel">
+        <h3 style="margin:6px 0 12px 0">תרשים גאנט</h3>
+        <div id="gantt"></div>
+      </section>
+
+      <section class="panel">
+        <h3 style="margin:6px 0 12px 0">טבלת משימות</h3>
+        <div style="overflow:auto">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:60px">#</th>
+                <th>פעולה</th>
+                <th>תחום</th>
+                <th>כיתה</th>
+                <th>התחלה</th>
+                <th>סיום</th>
+                <th>סטטוס</th>
+                <th>אחראי</th>
+                <th>KPI</th>
+                <th style="width:120px">פעולות</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    נבנה עם <strong>Frappe Gantt</strong> ו־HTML/JS. שמירה מקומית + גיבוי JSON אוטומטי בעת צורך.
+  </footer>
+
+  <script src="https://unpkg.com/frappe-gantt/dist/frappe-gantt.min.js"></script>
+  <script>
+    // -------- נתוני דוגמה לשכבה י׳ --------
+    const sampleTasks = [
+      {id:"1", title:"אספת הורים פתיחה",             domain:"מוסדי",   className:"י1", start:"2025-10-05", end:"2025-10-05", status:"מתוכנן", owner:"מחנך י׳1", progress:0,  kpi:1},
+      {id:"2", title:"מיפוי ראשוני במתמטיקה",        domain:"פדגוגי",  className:"י2", start:"2025-10-06", end:"2025-10-20", status:"בתהליך", owner:"מחנכת י׳2", progress:30, kpi:2},
+      {id:"3", title:"סדנת למידה עצמאית",            domain:"חברתי",   className:"י3", start:"2025-10-15", end:"2025-10-18", status:"בהכנות", owner:"יועצת",     progress:10, kpi:3},
+      {id:"4", title:"טיול שכבה לעיר דוד",           domain:"קהילתי",  className:"י4", start:"2025-11-10", end:"2025-11-10", status:"מתוכנן", owner:"רכז חברתי", progress:0,  kpi:4},
+      {id:"5", title:"מבחן אמצע סמסטר – ביולוגיה",   domain:"פדגוגי",  className:"י5", start:"2025-12-03", end:"2025-12-03", status:"מתוכנן", owner:"צוות מדעים", progress:0,  kpi:5},
+      {id:"6", title:"שיחות אישיות–תלמידים בסיכון",  domain:"מוסדי",   className:"י6", start:"2025-12-07", end:"2025-12-20", status:"מתוכנן", owner:"מחנך י׳6",  progress:0,  kpi:6},
+      {id:"7", title:"יום המעשים הטובים – התנדבות",  domain:"קהילתי",  className:"י3", start:"2026-01-12", end:"2026-01-12", status:"מתוכנן", owner:"רכז חברתי", progress:0,  kpi:7},
+      {id:"8", title:"הגשת עבודות PBL",              domain:"טכנולוגי",className:"י1", start:"2026-02-01", end:"2026-02-15", status:"מתוכנן", owner:"רכז מדעים", progress:0,  kpi:8}
+    ];
+
+    // --- אחסון בטוח עם נפילה חכמה ---
+    const LS_KEY = 'gantt_tasks_v1';
+    let STORAGE_MODE = 'local';
+    try { const tKey='__test__'+Math.random(); localStorage.setItem(tKey,'ok'); localStorage.removeItem(tKey); } catch { STORAGE_MODE='memory'; }
+    let memoryStore = null;
+    function showSaveModeBadge(){
+      const el=document.getElementById('saveModeBadge'); if(!el) return; el.style.display='inline-flex';
+      if(STORAGE_MODE==='local'){ el.textContent='מצב שמירה: דפדפן (LocalStorage)'; el.style.background='#0b3a2a'; el.style.color='#a7f3d0'; }
+      else{ el.textContent='מצב שמירה: זיכרון זמני — מומלץ ייצוא JSON'; el.style.background='#3a1f1f'; el.style.color='#fecaca'; }
+    }
+    function loadTasks(){
+      if(STORAGE_MODE==='local'){
+        try { const raw=localStorage.getItem(LS_KEY); if(!raw){ localStorage.setItem(LS_KEY, JSON.stringify(sampleTasks)); return JSON.parse(JSON.stringify(sampleTasks)); } return JSON.parse(raw); }
+        catch(e){ STORAGE_MODE='memory'; memoryStore=JSON.parse(JSON.stringify(sampleTasks)); showSaveModeBadge(); return memoryStore; }
+      } else { if(!memoryStore) memoryStore=JSON.parse(JSON.stringify(sampleTasks)); return memoryStore; }
+    }
+    function saveTasks(data){
+      if(STORAGE_MODE==='local'){
+        try{ localStorage.setItem(LS_KEY, JSON.stringify(data)); return true; }
+        catch(e){ STORAGE_MODE='memory'; memoryStore=JSON.parse(JSON.stringify(data)); showSaveModeBadge(); return false; }
+      } else { memoryStore=JSON.parse(JSON.stringify(data)); return false; }
+    }
+
+    // --- נתונים ---
+    let tasks = loadTasks(); showSaveModeBadge();
+    const statusClass = s => `status-${s}`;
+    const statusList = ["מתוכנן","בהכנות","בתהליך","הושלם","מוקפא"];
+    const classList  = ["י1","י2","י3","י4","י5","י6"];
+
+    // --- עזר ---
+    function newId(){ return String(Date.now()); }
+    function today(offsetDays=0){ const d=new Date(); d.setDate(d.getDate()+offsetDays); return d.toISOString().slice(0,10); }
+    const escapeHtml = s=> String(s).replace(/[&<>\"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+    const escapeAttr = s=> escapeHtml(s).replace(/"/g,'&quot;');
+
+    // --- המרות ---
+    function toGanttData(rows){
+      return rows.map(t=>({ id:t.id, name:(t.className?`[${t.className}] `:'')+t.title, start:t.start, end:t.end, progress:Math.max(0,Math.min(100,t.progress||0)), custom_class:statusClass(t.status) }));
+    }
+
+    // --- רנדר ---
+    let gantt;
+    function renderGantt(rows){
+      const el=document.getElementById('gantt'); el.innerHTML='';
+      if(!rows.length){ el.innerHTML='<div style="padding:16px" class="muted">אין נתונים לטווח/סינון שנבחר</div>'; return; }
+      gantt = new Gantt('#gantt', toGanttData(rows), {
+        view_mode:'Month', language:'he',
+        custom_popup_html:(task)=>{ const row=rows.find(r=>r.id===task.id)||{}; return `
+          <div class="panel" style="padding:10px; min-width:240px">
+            <div style="font-weight:700; margin-bottom:6px">${task.name}</div>
+            <div class="muted">${row.domain||''} • ${row.owner||''}</div>
+            <div class="muted">${task.start} → ${task.end}</div>
+            <div class="badge ${statusClass(row.status)}" style="margin-top:6px">${row.status||''}</div>
+          </div>`; }
+      });
+    }
+
+    function renderTable(rows){
+      const tb=document.getElementById('tbody'); tb.innerHTML='';
+      rows.forEach((t,i)=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`
+          <td>${i+1}</td>
+          <td>${escapeHtml(t.title)}</td>
+          <td><span class="badge domain">${t.domain}</span></td>
+          <td><span class="badge">${t.className||''}</span></td>
+          <td>${t.start}</td>
+          <td>${t.end}</td>
+          <td><span class="badge ${statusClass(t.status)}">${t.status}</span></td>
+          <td>${t.owner||''}</td>
+          <td class="pill">${t.kpi??''}</td>
+          <td>
+            <button class="btn" data-act="edit" data-id="${t.id}">עריכה ✏️</button>
+            <button class="btn danger" data-act="del" data-id="${t.id}">מחיקה 🗑️</button>
+          </td>`;
+        tb.appendChild(tr);
+      });
+      tb.querySelectorAll('button[data-act]')?.forEach(b=>b.addEventListener('click', onRowAction));
+    }
+
+    // --- פילטרים ---
+    function applyFilters(){
+      const domains=[...document.querySelectorAll('.flt-domain:checked')].map(x=>x.value);
+      const classes=[...document.querySelectorAll('.flt-class:checked')].map(x=>x.value);
+      const from=document.getElementById('dateFrom').value; const to=document.getElementById('dateTo').value;
+      let rows=tasks.filter(t=>domains.includes(t.domain));
+      rows=rows.filter(t=>!t.className || classes.includes(t.className));
+      if(from){ rows=rows.filter(t=>t.end>=from); }
+      if(to){ rows=rows.filter(t=>t.start<=to); }
+      rows.sort((a,b)=>a.start.localeCompare(b.start));
+      renderGantt(rows); renderTable(rows);
+    }
+
+    // --- מודאל ---
+    function modal(title, contentHtml, {okText='אישור', cancelText='ביטול', onOk}={}){
+      const wrap=document.createElement('div');
+      wrap.innerHTML=`
+        <div style="position:fixed; inset:0; background:rgba(0,0,0,.5); display:grid; place-items:center; z-index:9999">
+          <div class="panel" style="width:min(560px, 92vw)">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px">
+              <div style="font-weight:800">${title}</div>
+              <button class="btn ghost" id="dlg-x">✕</button>
+            </div>
+            <div id="dlg-content">${contentHtml}</div>
+            <div style="display:flex; gap:8px; justify-content:flex-start; margin-top:12px">
+              <button class="btn success" id="dlg-ok">${okText}</button>
+              <button class="btn" id="dlg-cancel">${cancelText}</button>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(wrap);
+      const close=()=>wrap.remove();
+      wrap.querySelector('#dlg-x').onclick=close;
+      wrap.querySelector('#dlg-cancel').onclick=close;
+      wrap.querySelector('#dlg-ok').addEventListener('click', ()=>{ try{ const res=onOk?.(); if(res!==false) close(); }catch(e){ alert('שגיאה בשמירה'); } });
+      return wrap;
+    }
+
+    // --- דיאלוג עריכה/הוספה ---
+    function openTaskDialog(existing){
+      const t= existing || {id:newId(), title:'', domain:'פדגוגי', className:'י1', start:today(), end:today(5), status:'מתוכנן', owner:'', progress:0, kpi:''};
+      const html=`
+        <div style="display:grid; gap:8px">
+          <label>שם המשימה <input id="dlg-title" value="${escapeAttr(t.title)}" style="width:100%"/></label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <label>תחום
+              <select id="dlg-domain">${['פדגוגי','טכנולוגי','קהילתי','מוסדי','חברתי'].map(d=>`<option ${d===t.domain?'selected':''}>${d}</option>`).join('')}</select>
+            </label>
+            <label>כיתה
+              <select id="dlg-class">${classList.map(c=>`<option ${c===(t.className||'')?'selected':''}>${c}</option>`).join('')}</select>
+            </label>
+            <label>סטטוס
+              <select id="dlg-status">${statusList.map(s=>`<option ${s===t.status?'selected':''}>${s}</option>`).join('')}</select>
+            </label>
+            <label>אחראי <input id="dlg-owner" value="${escapeAttr(t.owner||'')}"/></label>
+          </div>
+          <div style="display:flex; gap:8px">
+            <label>התחלה <input type="date" id="dlg-start" value="${t.start}"/></label>
+            <label>סיום <input type="date" id="dlg-end" value="${t.end}"/></label>
+          </div>
+          <label>התקדמות (%) <input type="number" min="0" max="100" id="dlg-progress" value="${t.progress}"/></label>
+          <label>KPI <input id="dlg-kpi" value="${escapeAttr(t.kpi||'')}"/></label>
+        </div>`;
+      modal(t.id? 'עריכת משימה' : 'הוספת משימה', html, {
+        okText: existing? 'שמור' : 'הוסף',
+        onOk(){
+          t.title = document.getElementById('dlg-title').value.trim();
+          t.domain= document.getElementById('dlg-domain').value;
+          t.className = document.getElementById('dlg-class').value;
+          t.start = document.getElementById('dlg-start').value;
+          t.end   = document.getElementById('dlg-end').value;
+          t.status= document.getElementById('dlg-status').value;
+          t.owner = document.getElementById('dlg-owner').value.trim();
+          t.progress = Number(document.getElementById('dlg-progress').value||0);
+          t.kpi = document.getElementById('dlg-kpi').value.trim();
+          if(!t.title || !t.start || !t.end){ alert('שם ותאריכים חובה'); return false; }
+          if(existing){ const idx=tasks.findIndex(x=>x.id===t.id); tasks[idx]=t; }
+          else{ tasks.push(t); }
+          const ok=saveTasks(tasks); applyFilters(); if(!ok){ alert('שמירה קבועה נחסמה — גיבוי JSON ירד עכשיו'); exportJSON('tasks-backup.json'); }
+        }
+      });
+    }
+
+    // --- יצוא/יבוא ---
+    function exportJSON(filename='tasks.json'){
+      const blob = new Blob([JSON.stringify(tasks, null, 2)], {type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+    }
+    function importJSON(file){
+      const reader = new FileReader();
+      reader.onload = () => { try{ const arr=JSON.parse(reader.result);
+        if(Array.isArray(arr)){
+          tasks = arr.map((t,i)=>({ id:String(t.id ?? (Date.now()+i)), title:t.title||t.name||'', domain:t.domain||'פדגוגי', className:t.className||'', start:t.start, end:t.end, status:t.status||'מתוכנן', owner:t.owner||'', progress:Number(t.progress||0), kpi:t.kpi||'' }));
+          saveTasks(tasks); applyFilters();
+        } else alert('קובץ לא תקין'); } catch{ alert('שגיאה בקריאת JSON'); } };
+      reader.readAsText(file);
+    }
+
+    // --- אירועים ---
+    document.getElementById('btnAdd').onclick = ()=> openTaskDialog();
+    document.getElementById('btnExport').onclick = ()=> exportJSON('tasks.json');
+    document.getElementById('btnImport').onclick = ()=> document.getElementById('fileInput').click();
+    document.getElementById('fileInput').addEventListener('change', e=>{ const f=e.target.files?.[0]; if(f) importJSON(f); e.target.value=''; });
+    document.getElementById('btnReset').onclick = ()=>{ if(confirm('להחזיר נתוני דוגמה?')){ localStorage.removeItem(LS_KEY); tasks = loadTasks(); applyFilters(); } };
+    document.getElementById('btnClearDates').onclick = ()=>{ document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; applyFilters(); };
+    document.querySelectorAll('.flt-domain').forEach(c=> c.addEventListener('change', applyFilters));
+    document.querySelectorAll('.flt-class').forEach(c=> c.addEventListener('change', applyFilters));
+    document.getElementById('dateFrom').addEventListener('change', applyFilters);
+    document.getElementById('dateTo').addEventListener('change', applyFilters);
+
+    // טופס קבוע
+    const addForm=document.getElementById('addForm'); const btnClearForm=document.getElementById('btnClearForm');
+    if(addForm){
+      addForm.addEventListener('submit',(e)=>{
+        e.preventDefault(); const fd=new FormData(addForm);
+        const t={ id:newId(), title:(fd.get('title')||'').toString().trim(), domain:fd.get('domain')?.toString()||'פדגוגי', className:fd.get('className')?.toString()||'י1', start:fd.get('start')?.toString()||'', end:fd.get('end')?.toString()||'', status:fd.get('status')?.toString()||'מתוכנן', owner:fd.get('owner')?.toString()||'', progress:Number(fd.get('progress')||0), kpi:(fd.get('kpi')||'').toString() };
+        if(!t.title || !t.start || !t.end){ alert('שם המשימה ותאריכים חובה'); return; }
+        tasks.push(t); const ok=saveTasks(tasks); applyFilters(); if(!ok){ alert('שמירה קבועה נחסמה — גיבוי JSON ירד עכשיו'); exportJSON('tasks-backup.json'); }
+        addForm.reset(); alert('נשמר! המשימה נוספה');
+      });
+      btnClearForm?.addEventListener('click',()=> addForm.reset());
+    }
+
+    // רנדר ראשוני
+    applyFilters();
+  </script>
+</body>
+</html>
