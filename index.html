@@ -1,56 +1,86 @@
-<!doctype html>
+# Create the requested dark-themed, single-file Gantt page with school name
+# and support for importing JSON/CSV/XLSX. Provide as a downloadable HTML file.
+content = """<!doctype html>
 <html lang="he" dir="rtl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>לוח גאנט — יפיפה וצבעוני</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css" rel="stylesheet">
-<style>
-  :root{
-    --pedagogi:#ef4b6c;
-    --kehila:#1fb6d5;
-    --tech:#ff9800;
-    --mosdi:#43a047;
-    --hevra:#9e9e9e;
-    --bg:#f6f7fb;
-  }
-  body{background:var(--bg);}
-  .hero {
-    background: radial-gradient(1200px 500px at 80% -30%, rgba(99,102,241,.12), transparent 60%),
-                radial-gradient(1200px 500px at 0% 120%, rgba(99,102,241,.08), transparent 60%);
-  }
-  .card{border:0; border-radius:20px; box-shadow:0 10px 24px rgba(24,39,75,.05), 0 2px 6px rgba(24,39,75,.03);}
-  .chip{border-radius:999px; padding:.4rem .9rem; font-weight:600; cursor:pointer; user-select:none; border:1px solid rgba(0,0,0,.05);}
-  .chip.active{outline:3px solid rgba(0,0,0,.07); background:#fff;}
-  .chip-p{background:rgba(239,75,108,.12); color:#b32646;}
-  .chip-k{background:rgba(31,182,213,.12); color:#0e6883;}
-  .chip-t{background:rgba(255,152,0,.14); color:#8a5b00;}
-  .chip-m{background:rgba(67,160,71,.14); color:#2a6d32;}
-  .chip-h{background:rgba(158,158,158,.16); color:#4d4d4d;}
-  .chip-all{background:#fff;}
-  /* Gantt bar colors */
-  .gantt .bar-פדגוגי{ fill: var(--pedagogi); }
-  .gantt .bar-קהילתי{ fill: var(--kehila); }
-  .gantt .bar-טכנולוגי{ fill: var(--tech); }
-  .gantt .bar-מוסדי{ fill: var(--mosdi); }
-  .gantt .bar-חברתי{ fill: var(--hevra); }
-  /* Today marker */
-  .gantt .today-highlight line{ stroke: #6c63ff; stroke-width: 2; stroke-dasharray: 4 4; }
-  /* Popup */
-  .details-container{ background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:12px; padding:8px 12px; }
-  .legend span{display:inline-flex; align-items:center; gap:.5rem; margin-inline-end:1rem;}
-  .legend i{display:inline-block; width:14px; height:14px; border-radius:3px;}
-  .lg-p{background:var(--pedagogi);} .lg-k{background:var(--kehila);} .lg-t{background:var(--tech);}
-  .lg-m{background:var(--mosdi);} .lg-h{background:var(--hevra);}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>לוח גאנט — אלנג'אח رهط (גרסה כהה)</title>
+  <!-- Bootstrap RTL -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <!-- Frappe Gantt -->
+  <link href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css" rel="stylesheet">
+  <!-- SheetJS for XLSX/CSV -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#11121a;
+      --panel:#1b1d2b;
+      --panel-2:#232535;
+      --text:#e8e8f0;
+      --muted:#b9bfd6;
+      --brand:#7c6cff;
+      --chip:#2b2e44;
+      --chip-active:#7c6cff;
+      --pedagogi:#ef4b6c;
+      --kehila:#1fb6d5;
+      --tech:#ff9800;
+      --mosdi:#43a047;
+      --hevra:#9e9e9e;
+    }
+    html,body{background:var(--bg); color:var(--text);}
+    .hero-dark{
+      background: linear-gradient(120deg,#191b28 0%, #23263a 60%, #2b2e44 100%);
+      border-bottom:1px solid rgba(255,255,255,.05);
+      box-shadow:0 6px 24px rgba(0,0,0,.35);
+    }
+    .card{background:var(--panel); border:1px solid rgba(255,255,255,.06); border-radius:20px;}
+    .legend span{display:inline-flex; align-items:center; gap:.5rem; margin-inline-end:1rem; color:var(--muted);}
+    .legend i{display:inline-block; width:14px; height:14px; border-radius:3px;}
+    .lg-p{background:var(--pedagogi);} .lg-k{background:var(--kehila);} .lg-t{background:var(--tech);}
+    .lg-m{background:var(--mosdi);} .lg-h{background:var(--hevra);}
+
+    .chip{border-radius:999px; padding:.45rem 1rem; font-weight:600; cursor:pointer; user-select:none;
+      border:1px solid rgba(255,255,255,.06); background:var(--chip); color:var(--text);}
+    .chip:hover{filter:brightness(1.1);}
+    .chip.active{background:var(--chip-active); border-color:transparent; color:#fff;}
+    .chip-all{background:transparent; border:1px dashed rgba(255,255,255,.15);}
+    .form-select, .btn{border-radius:999px;}
+    .btn-outline-light{border-color:rgba(255,255,255,.35); color:#fff;}
+    .btn-outline-light:hover{background:#fff; color:#111;}
+    .btn-outline-secondary{color:#ddd; border-color:#565973;}
+    .btn-outline-secondary:hover{background:#ddd; color:#111;}
+
+    /* Gantt colors */
+    .gantt .bar-פדגוגי{ fill: var(--pedagogi); }
+    .gantt .bar-קהילתי{ fill: var(--kehila); }
+    .gantt .bar-טכנולוגי{ fill: var(--tech); }
+    .gantt .bar-מוסדי{ fill: var(--mosdi); }
+    .gantt .bar-חברתי{ fill: var(--hevra); }
+    .gantt .bar-progress{ fill: rgba(0,0,0,.25); }
+
+    /* Today marker */
+    .gantt .today-highlight line{ stroke: var(--brand); stroke-width: 2; stroke-dasharray: 4 4; }
+
+    /* Popup */
+    .details-container{
+      background: var(--panel-2);
+      color: var(--text);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:12px; padding:10px 12px;
+      box-shadow:0 8px 24px rgba(0,0,0,.4);
+    }
+
+    a, a:visited{color:#b8b2ff;}
+  </style>
 </head>
 <body>
-  <header class="hero py-4 mb-2">
+  <header class="hero-dark py-4 mb-3">
     <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3">
       <div>
-        <h1 class="h3 mb-1">לוח גאנט – בית הספר</h1>
-        <div class="legend text-muted small">
+        <h1 class="h3 mb-1 text-light">📘 אלנג'אח – رهط</h1>
+        <div class="legend small">
           <span><i class="lg-p"></i> פדגוגי</span>
           <span><i class="lg-k"></i> קהילתי</span>
           <span><i class="lg-t"></i> טכנולוגי</span>
@@ -59,8 +89,8 @@
         </div>
       </div>
       <div class="d-flex gap-2">
-        <button id="btn-import" class="btn btn-outline-primary btn-sm">ייבוא JSON</button>
-        <button id="btn-export" class="btn btn-outline-secondary btn-sm">יצוא CSV</button>
+        <button id="btn-import" class="btn btn-outline-light btn-sm">ייבוא קובץ</button>
+        <button id="btn-export" class="btn btn-outline-light btn-sm">יצוא CSV</button>
       </div>
     </div>
   </header>
@@ -68,22 +98,22 @@
   <main class="container pb-5">
     <div class="card mb-3">
       <div class="card-body d-flex flex-wrap align-items-center gap-2">
-        <span class="fw-bold me-2">סינון לפי תחום:</span>
+        <span class="fw-bold me-2" style="color:var(--muted)">סינון לפי תחום:</span>
         <span class="chip chip-all active" data-domain="ALL">הכל</span>
-        <span class="chip chip-p" data-domain="פדגוגי">פדגוגי</span>
-        <span class="chip chip-k" data-domain="קהילתי">קהילתי</span>
-        <span class="chip chip-t" data-domain="טכנולוגי">טכנולוגי</span>
-        <span class="chip chip-m" data-domain="מוסדי">מוסדי</span>
-        <span class="chip chip-h" data-domain="חברתי">חברתי</span>
+        <span class="chip" data-domain="פדגוגי">פדגוגי</span>
+        <span class="chip" data-domain="קהילתי">קהילתי</span>
+        <span class="chip" data-domain="טכנולוגי">טכנולוגי</span>
+        <span class="chip" data-domain="מוסדי">מוסדי</span>
+        <span class="chip" data-domain="חברתי">חברתי</span>
         <div class="ms-auto d-flex gap-2">
-          <select id="viewMode" class="form-select form-select-sm" style="width:auto;">
+          <select id="viewMode" class="form-select form-select-sm" style="width:auto; background:var(--panel-2); color:var(--text); border:1px solid rgba(255,255,255,.12);">
             <option value="Month" selected>חודש</option>
-            <option value="Quarter Day">רבע יום</option>
-            <option value="Day">יום</option>
             <option value="Week">שבוע</option>
+            <option value="Day">יום</option>
+            <option value="Quarter Day">רבע יום</option>
             <option value="Year">שנה</option>
           </select>
-          <button id="btn-today" class="btn btn-sm btn-outline-dark">היום</button>
+          <button id="btn-today" class="btn btn-sm btn-outline-secondary">היום</button>
         </div>
       </div>
     </div>
@@ -95,10 +125,12 @@
     </div>
   </main>
 
-  <input type="file" id="file-input" accept="application/json" hidden>
+  <input type="file" id="file-input" accept=".json,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
 
+  <!-- Frappe Gantt -->
   <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
   <script>
+    // ===== נתוני ברירת מחדל =====
     const DEFAULTS = [
       { id:"1", domain:"פדגוגי", name:"סדנת פתיחת שנה והצגת חזון", start:"2025-09-05", end:"2025-09-10", progress:100 },
       { id:"2", domain:"קהילתי", name:"מיפוי תלמידי שכבה והערכת פערים", start:"2025-09-15", end:"2025-10-10", progress:60 },
@@ -110,6 +142,37 @@
     let TASKS = DEFAULTS.slice();
     let gantt, currentView = 'Month', currentDomain = 'ALL';
 
+    // ===== עזרי נתונים =====
+    function normalizeTask(t){
+      // תמיכה בכותרות בעברית/אנגלית מהקובץ
+      const map = {
+        id: t.id ?? t.ID ?? t.Id,
+        domain: t.domain ?? t.תחום ?? t.Domain,
+        name: t.name ?? t.פעולה ?? t.Task ?? t.Title ?? t.Name,
+        start: t.start ?? t.התחלה ?? t.Start,
+        end: t.end ?? t.סיום ?? t.End,
+        progress: Number(t.progress ?? t.התקדמות ?? t.Progress ?? 0)
+      };
+      // פורמט תאריך לגאנט (YYYY-MM-DD)
+      const toISO = (v)=>{
+        if(!v) return v;
+        const s = String(v).trim();
+        // אם זה כבר YYYY-MM-DD
+        if(/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return s;
+        // אם זה DD/MM/YYYY
+        const m1 = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{2,4})$/);
+        if(m1){
+          const d = m1[1].padStart(2,'0'), mo = m1[2].padStart(2,'0');
+          const y = m1[3].length===2 ? '20'+m1[3] : m1[3];
+          return y+'-'+mo+'-'+d;
+        }
+        return s; // ניסיון לטעון ישירות
+      };
+      map.start = toISO(map.start);
+      map.end = toISO(map.end);
+      return map;
+    }
+
     function filteredTasks(){
       return currentDomain === 'ALL' ? TASKS : TASKS.filter(t=>t.domain === currentDomain);
     }
@@ -119,56 +182,96 @@
         custom_class: 'bar-' + t.domain
       }));
     }
+
+    // ===== רנדר =====
     function render(){
       const el = document.getElementById('gantt');
       el.innerHTML = "";
+      if(!filteredTasks().length){
+        el.innerHTML = '<div class="text-center text-muted p-4">אין משימות להצגה</div>';
+        return;
+      }
       gantt = new Gantt("#gantt", toGantt(filteredTasks()), {
         view_mode: currentView,
         custom_popup_html: task => {
           const t = TASKS.find(x=>x.id===task.id) || task;
           return `<div class="details-container">
             <div class="fw-bold">${task.name}</div>
-            <div>תחום: ${t.domain}</div>
+            <div>תחום: ${t.domain||'-'}</div>
             <div>תאריכים: ${task.start} → ${task.end}</div>
-            <div>התקדמות: ${task.progress}%</div>
+            <div>התקדמות: ${task.progress??0}%</div>
           </div>`;
         }
       });
       markToday();
     }
+
     function markToday(){
       const svg = document.querySelector('#gantt svg');
       if(!svg) return;
+      // נסמן קו לאורך ה־SVG בעמודה של היום הנוכחי לפי תוויות תחתונות
       const today = new Date(); today.setHours(0,0,0,0);
-      // Find x coordinate for today by scanning date ticks
-      const ticks = svg.querySelectorAll('.lower-text'); // bottom axis labels
+      const ticks = svg.querySelectorAll('.lower-text');
       let x = null;
       ticks.forEach(t=>{
-        const title = t.textContent;
-        // heuristic: find first tick with today's day number when in Day/Week/Month views
+        const txt = t.textContent || '';
         const n = today.getDate();
-        if (String(n) === title.replace(/[^0-9]/g,'')) {
-          const g = t.closest('g');
-          if (g){ const tr = g.getAttribute('transform'); const m = /translate\(([-0-9\.]+),([-0-9\.]+)\)/.exec(tr||''); if(m) x = parseFloat(m[1]); }
+        if (String(n) === txt.replace(/[^0-9]/g,'')) {
+          const g = t.closest('g'); if (!g) return;
+          const tr = g.getAttribute('transform');
+          const m = /translate\\(([-0-9\\.]+),([-0-9\\.]+)\\)/.exec(tr||'');
+          if (m) x = parseFloat(m[1]);
         }
       });
       if (x!==null){
         const h = svg.getBBox().height;
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
         line.setAttribute('x1', x); line.setAttribute('x2', x);
         line.setAttribute('y1', 0); line.setAttribute('y2', h);
-        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const g = document.createElementNS('http://www.w3.org/2000/svg','g');
         g.setAttribute('class','today-highlight');
         g.appendChild(line);
         svg.appendChild(g);
       }
     }
 
-    // Init
+    // ===== יבוא / יצוא =====
+    async function handleFile(file){
+      const name = (file.name||'').toLowerCase();
+      const buf = await file.arrayBuffer();
+      if (name.endsWith('.json')){
+        const text = new TextDecoder().decode(buf);
+        const data = JSON.parse(text);
+        if (!Array.isArray(data)) throw new Error('JSON חייב להיות מערך משימות');
+        TASKS = data.map(normalizeTask);
+        render(); alert('ייבוא JSON הושלם');
+        return;
+      }
+      // XLSX/CSV via SheetJS
+      const wb = XLSX.read(buf, {type:'array'});
+      const sheetName = wb.SheetNames[0];
+      const sheet = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet); // מערך של אובייקטים
+      if (!Array.isArray(rows) || !rows.length) throw new Error('קובץ ריק או לא תקין');
+      TASKS = rows.map(normalizeTask);
+      render(); alert('ייבוא קובץ הושלם');
+    }
+
+    function exportCSV(){
+      const headers = ["id","domain","name","start","end","progress"];
+      const rows = TASKS.map(t=>headers.map(h=>t[h]??""));
+      const csv = [headers, ...rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\\n");
+      const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'gantt.csv';
+      a.click();
+    }
+
+    // ===== Init =====
     document.addEventListener('DOMContentLoaded', ()=>{
       render();
 
-      // Filter chips
       document.querySelectorAll('.chip').forEach(c=>{
         c.addEventListener('click', ()=>{
           document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
@@ -178,33 +281,35 @@
         });
       });
 
-      // View mode
       document.getElementById('viewMode').addEventListener('change', (e)=>{
-        currentView = e.target.value; render();
+        currentView = e.target.value;
+        render();
       });
 
-      // Today jump (re-render keeps centered)
       document.getElementById('btn-today').addEventListener('click', ()=> render());
 
-      // Import/Export
-      document.getElementById('btn-import').onclick = ()=> document.getElementById('file-input').click();
-      document.getElementById('file-input').onchange = async (e)=>{
-        const f = e.target.files[0]; if(!f) return;
+      document.getElementById('btn-import').addEventListener('click', ()=>{
+        const input = document.getElementById('file-input');
+        input.value = ""; // reset
+        input.click();
+      });
+      document.getElementById('file-input').addEventListener('change', async (e)=>{
+        const f = e.target.files[0];
+        if(!f) return;
         try{
-          const text = await f.text(); const json = JSON.parse(text);
-          if(!Array.isArray(json)) throw new Error('JSON חייב להיות מערך משימות');
-          TASKS = json; render(); alert('ייבוא הושלם');
-        }catch(err){ alert('שגיאה בייבוא: ' + err.message); }
-        finally { e.target.value = ""; }
-      };
-      document.getElementById('btn-export').onclick = ()=>{
-        const headers = ["id","domain","name","start","end","progress"];
-        const rows = TASKS.map(t=>headers.map(h=>t[h]??""));
-        const csv = [headers, ...rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
-        const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'gantt.csv'; a.click();
-      };
+          await handleFile(f);
+        }catch(err){
+          alert('שגיאה בייבוא: ' + (err && err.message ? err.message : err));
+        }
+      });
+
+      document.getElementById('btn-export').addEventListener('click', exportCSV);
     });
   </script>
 </body>
 </html>
+"""
+path = "/mnt/data/index-dark-elnajah.html"
+with open(path, "w", encoding="utf-8") as f:
+    f.write(content)
+path
