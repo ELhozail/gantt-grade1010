@@ -6,6 +6,7 @@ from pathlib import Path
 file_path = "/mnt/data/gantt-fixed.xlsx"
 df = pd.read_excel(file_path)
 
+
 # Ensure datetime types
 df["start"] = pd.to_datetime(df["start"])
 df["end"] = pd.to_datetime(df["end"])
