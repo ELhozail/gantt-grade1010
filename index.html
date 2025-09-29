@@ -1,305 +1,261 @@
-<!doctype html>
+import pandas as pd
+import json
+from pathlib import Path
+
+# Load the Excel uploaded by the user
+file_path = "/mnt/data/gantt-fixed.xlsx"
+df = pd.read_excel(file_path)
+
+# Ensure datetime types
+df["start"] = pd.to_datetime(df["start"])
+df["end"] = pd.to_datetime(df["end"])
+
+# Normalize domains and collect unique
+df["domain"] = df["domain"].astype(str).str.strip()
+domains = sorted(df["domain"].dropna().unique().tolist())
+
+# Color palette for known domains (fallbacks if new ones appear)
+default_colors = {
+    "פדגוגי": "#ef4444",
+    "מוסדי": "#a855f7",
+    "חברתי": "#f59e0b",
+    "טכנולוגי": "#3b82f6",
+    "קהילתי": "#22c55e"
+}
+# Assign colors in deterministic order
+assigned_colors = {}
+palette_cycle = ["#ef4444", "#22c55e", "#3b82f6", "#a855f7", "#f59e0b", "#14b8a6", "#e11d48", "#0ea5e9"]
+i = 0
+for d in domains:
+    assigned_colors[d] = default_colors.get(d, palette_cycle[i % len(palette_cycle)])
+    i += 1
+
+# Build items array from the dataframe
+items = []
+for _, row in df.iterrows():
+    items.append({
+        "id": int(row["id"]),
+        "group": str(row["domain"]),
+        "content": str(row["name"]),
+        "start": row["start"].strftime("%Y-%m-%d"),
+        "end": row["end"].strftime("%Y-%m-%d"),
+        "title": f"סטטוס: {int(row['progress'])}%"
+    })
+
+# Create the HTML content
+html_template = f"""<!doctype html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>לוח גאנט — אלנג'אח שכבה י' (גרסה כהה)</title>
-  <!-- Bootstrap RTL -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-  <!-- Frappe Gantt -->
-  <link href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css" rel="stylesheet">
-  <!-- SheetJS for XLSX/CSV -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>לוח גאנט — עברית (ייבוא מ-Excel)</title>
+
+  <!-- vis-timeline CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/vis-timeline@7.7.0/styles/vis-timeline-graph2d.min.css">
+  <script src="https://unpkg.com/vis-data@7.1.4/peer/umd/vis-data.min.js"></script>
+  <script src="https://unpkg.com/vis-timeline@7.7.0/peer/umd/vis-timeline-graph2d.min.js"></script>
 
   <style>
-    :root{
-      --bg:#11121a;
-      --panel:#1b1d2b;
-      --panel-2:#232535;
-      --text:#e8e8f0;
-      --muted:#b9bfd6;
-      --brand:#7c6cff;
-      --chip:#2b2e44;
-      --chip-active:#7c6cff;
-      --pedagogi:#ef4b6c;
-      --kehila:#1fb6d5;
-      --tech:#ff9800;
-      --mosdi:#43a047;
-      --hevra:#9e9e9e;
-    }
-    html,body{background:var(--bg); color:var(--text);}
-    .hero-dark{
-      background: linear-gradient(120deg,#191b28 0%, #23263a 60%, #2b2e44 100%);
-      border-bottom:1px solid rgba(255,255,255,.05);
-      box-shadow:0 6px 24px rgba(0,0,0,.35);
-    }
-    .card{background:var(--panel); border:1px solid rgba(255,255,255,.06); border-radius:20px;}
-    .legend span{display:inline-flex; align-items:center; gap:.5rem; margin-inline-end:1rem; color:var(--muted);}
-    .legend i{display:inline-block; width:14px; height:14px; border-radius:3px;}
-    .lg-p{background:var(--pedagogi);} .lg-k{background:var(--kehila);} .lg-t{background:var(--tech);}
-    .lg-m{background:var(--mosdi);} .lg-h{background:var(--hevra);}
+    :root{{
+      --bg:#f7f7f9;
+      --card:#ffffff;
+      --ink:#111;
+      --muted:#6b7280;
+      --accent:#0ea5e9;
+      --radius:16px;
+      --shadow:0 8px 24px rgba(0,0,0,.08);
+    }}
+    *{{box-sizing:border-box}}
+    body{{
+      margin:0;
+      background:var(--bg);
+      color:var(--ink);
+      font-family: "Heebo", "Rubik", "Assistant", "Arial", sans-serif;
+      line-height:1.45;
+      direction: rtl;
+      text-align:right;
+    }}
+    header{{ padding:22px 18px 6px; }}
+    h1{{ margin:0 0 8px; font-size: clamp(22px, 3vw, 34px); font-weight:800; }}
+    .toolbar{{
+      display:flex; flex-wrap:wrap; gap:8px; align-items:center; color:var(--muted); font-size:14px;
+    }}
+    .toolbar .btn{{
+      background:var(--card); border:1px solid #e5e7eb; padding:8px 12px; border-radius:12px; cursor:pointer; box-shadow: var(--shadow);
+    }}
+    .panel{{ margin:10px 18px 24px; background:var(--card); border:1px solid #e5e7eb; border-radius:var(--radius); box-shadow: var(--shadow);}}
+    #timeline{{ height:380px; border-radius: var(--radius);}}
+    .legend{{ display:flex; gap:10px; padding:10px 14px 14px; flex-wrap:wrap; border-top:1px dashed #e5e7eb; font-size:14px; color:#374151; }}
+    .dot{{ display:inline-block; inline-size:12px; block-size:12px; border-radius:99px; margin-inline-end:6px; vertical-align:middle; }}
 
-    .chip{border-radius:999px; padding:.45rem 1rem; font-weight:600; cursor:pointer; user-select:none;
-      border:1px solid rgba(255,255,255,.06); background:var(--chip); color:var(--text);}
-    .chip:hover{filter:brightness(1.1);}
-    .chip.active{background:var(--chip-active); border-color:transparent; color:#fff;}
-    .chip-all{background:transparent; border:1px dashed rgba(255,255,255,.15);}
-    .form-select, .btn{border-radius:999px;}
-    .btn-outline-light{border-color:rgba(255,255,255,.35); color:#fff;}
-    .btn-outline-light:hover{background:#fff; color:#111;}
-    .btn-outline-secondary{color:#ddd; border-color:#565973;}
-    .btn-outline-secondary:hover{background:#ddd; color:#111;}
+    .table-wrap{{ margin:0 18px 60px; background:var(--card); border:1px solid #e5e7eb; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }}
+    .table-head{{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #eef2f7; }}
+    .table-head h2{{ margin:0; font-size:18px; font-weight:800; }}
+    .filter-row{{ padding:10px 16px; border-bottom:1px dashed #eef2f7; display:flex; gap:16px; flex-wrap:wrap; align-items:center; color:#374151; font-size:14px; }}
+    table{{ width:100%; border-collapse:separate; border-spacing:0; font-size:14px; }}
+    thead th{{ position:sticky; top:0; background:#fafafa; z-index:1; text-align:right; padding:10px 12px; border-bottom:1px solid #e5e7eb; font-weight:700; color:#111827; white-space:nowrap; }}
+    tbody td{{ padding:10px 12px; border-bottom:1px solid #f1f5f9; vertical-align:top; }}
+    tbody tr:hover{{background:#fbfdff}}
+    .chip{{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:#f3f4f6; color:#111827; font-weight:600; font-size:12px; line-height:1; }}
+    .status{{ font-weight:700; padding:4px 8px; border-radius:8px; display:inline-block; }}
+    .s-done{{background:#e8faf1;color:#0f766e}} .s-plan{{background:#eef2ff;color:#4338ca}} .s-progress{{background:#fff7ed;color:#b45309}}
 
-    /* Gantt colors */
-    .gantt .bar-פדגוגי{ fill: var(--pedagogi); }
-    .gantt .bar-קהילתי{ fill: var(--kehila); }
-    .gantt .bar-טכנולוגי{ fill: var(--tech); }
-    .gantt .bar-מוסדי{ fill: var(--mosdi); }
-    .gantt .bar-חברתי{ fill: var(--hevra); }
-    .gantt .bar-progress{ fill: rgba(0,0,0,.25); }
-
-    /* Today marker */
-    .gantt .today-highlight line{ stroke: var(--brand); stroke-width: 2; stroke-dasharray: 4 4; }
-
-    /* Popup */
-    .details-container{
-      background: var(--panel-2);
-      color: var(--text);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:12px; padding:10px 12px;
-      box-shadow:0 8px 24px rgba(0,0,0,.4);
-    }
-
-    a, a:visited{color:#b8b2ff;}
+    .vis-timeline{{ border:none !important; border-radius:var(--radius);}}
+    .vis-item .vis-item-content{{ padding:6px 10px; font-weight:700;}}
   </style>
 </head>
 <body>
-  <header class="hero-dark py-4 mb-3">
-    <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3">
-      <div>
-        <h1 class="h3 mb-1 text-light">📘 אלנג'אח – رهط</h1>
-        <div class="legend small">
-          <span><i class="lg-p"></i> פדגוגי</span>
-          <span><i class="lg-k"></i> קהילתי</span>
-          <span><i class="lg-t"></i> טכנולוגי</span>
-          <span><i class="lg-m"></i> מוסדי</span>
-          <span><i class="lg-h"></i> חברתי</span>
-        </div>
-      </div>
-      <div class="d-flex gap-2">
-        <button id="btn-import" class="btn btn-outline-light btn-sm">ייבוא קובץ</button>
-        <button id="btn-export" class="btn btn-outline-light btn-sm">יצוא CSV</button>
-      </div>
+  <header>
+    <h1>לוח גאנט — בית הספר (ייבוא מ-Excel)</h1>
+    <div class="toolbar">
+      <button class="btn" id="zoomIn">התקרב</button>
+      <button class="btn" id="zoomOut">התרחק</button>
+      <button class="btn" id="fitAll">התאם לכל הטווח</button>
+      <span class="small" style="color:#6b7280">RTL · חודשים בעברית</span>
     </div>
   </header>
 
-  <main class="container pb-5">
-    <div class="card mb-3">
-      <div class="card-body d-flex flex-wrap align-items-center gap-2">
-        <span class="fw-bold me-2" style="color:var(--muted)">סינון לפי תחום:</span>
-        <span class="chip chip-all active" data-domain="ALL">הכל</span>
-        <span class="chip" data-domain="פדגוגי">פדגוגי</span>
-        <span class="chip" data-domain="קהילתי">קהילתי</span>
-        <span class="chip" data-domain="טכנולוגי">טכנולוגי</span>
-        <span class="chip" data-domain="מוסדי">מוסדי</span>
-        <span class="chip" data-domain="חברתי">חברתי</span>
-        <div class="ms-auto d-flex gap-2">
-          <select id="viewMode" class="form-select form-select-sm" style="width:auto; background:var(--panel-2); color:var(--text); border:1px solid rgba(255,255,255,.12);">
-            <option value="Month" selected>חודש</option>
-            <option value="Week">שבוע</option>
-            <option value="Day">יום</option>
-            <option value="Quarter Day">רבע יום</option>
-            <option value="Year">שנה</option>
-          </select>
-          <button id="btn-today" class="btn btn-sm btn-outline-secondary">היום</button>
-        </div>
-      </div>
+  <section class="panel">
+    <div id="timeline"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="table-wrap">
+    <div class="table-head">
+      <h2>טבלת משימות</h2>
+      <div class="small" style="color:#6b7280">המשימות נטענו מקובץ ה-Excel שלך</div>
     </div>
 
-    <div class="card">
-      <div class="card-body" style="overflow-x:auto;">
-        <div id="gantt" style="min-width:1100px;"></div>
-      </div>
+    <div class="filter-row" id="filters"></div>
+
+    <div style="max-height:520px; overflow:auto;">
+      <table id="tasksTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>תחום</th>
+            <th>פעולה</th>
+            <th>התחלה</th>
+            <th>סיום</th>
+            <th>סטטוס</th>
+            <th>פעולות</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
-  </main>
+  </section>
 
-  <input type="file" id="file-input" accept=".json,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
-
-  <!-- Frappe Gantt -->
-  <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
   <script>
-    // ===== נתוני ברירת מחדל =====
-    const DEFAULTS = [
-      { id:"1", domain:"פדגוגי", name:"סדנת פתיחת שנה והצגת חזון", start:"2025-09-05", end:"2025-09-10", progress:100 },
-      { id:"2", domain:"קהילתי", name:"מיפוי תלמידי שכבה והערכת פערים", start:"2025-09-15", end:"2025-10-10", progress:60 },
-      { id:"3", domain:"טכנולוגי", name:"יישומי PBL ראשוניים", start:"2025-10-15", end:"2025-11-20", progress:20 },
-      { id:"4", domain:"מוסדי", name:"השקת תחנת רדיו בית ספרית", start:"2025-11-01", end:"2025-11-30", progress:0 },
-      { id:"5", domain:"חברתי", name:"סדנאות SEL חווייתיות", start:"2025-12-01", end:"2025-12-10", progress:30 }
-    ];
+    // ====== נתונים שיוצרו מה-Excel ======
+    const DOMAIN_COLORS = {json.dumps(assigned_colors, ensure_ascii=False)};
+    const itemsArray = {json.dumps(items, ensure_ascii=False)};
 
-    let TASKS = DEFAULTS.slice();
-    let gantt, currentView = 'Month', currentDomain = 'ALL';
+    // ====== vis DataSets ======
+    const groupsData = new vis.DataSet(Object.keys(DOMAIN_COLORS).map((name) => ({{ id: name, content: name }})));
+    const itemsData = new vis.DataSet(itemsArray);
 
-    // ===== עזרי נתונים =====
-    function normalizeTask(t){
-      // תמיכה בכותרות בעברית/אנגלית מהקובץ
-      const map = {
-        id: t.id ?? t.ID ?? t.Id ?? t['מספר'],
-        domain: t.domain ?? t['תחום'] ?? t.Domain,
-        name: t.name ?? t['פעולה'] ?? t.Task ?? t.Title ?? t.Name ?? t['משימה'],
-        start: t.start ?? t['התחלה'] ?? t.Start,
-        end: t.end ?? t['סיום'] ?? t.End,
-        progress: Number(t.progress ?? t['התקדמות'] ?? t.Progress ?? 0)
-      };
-      // פורמט תאריך לגאנט (YYYY-MM-DD)
-      const toISO = (v)=>{
-        if(!v) return v;
-        const s = String(v).trim();
-        if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // YYYY-MM-DD
-        const m1 = s.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})$/); // DD/MM/YYYY
-        if(m1){
-          const d = m1[1].padStart(2,'0'), mo = m1[2].padStart(2,'0');
-          const y = m1[3].length===2 ? '20'+m1[3] : m1[3];
-          return y+'-'+mo+'-'+d;
-        }
-        return s;
-      };
-      map.start = toISO(map.start);
-      map.end = toISO(map.end);
-      return map;
-    }
+    // ====== Legend and filters ======
+    const legend = document.getElementById('legend');
+    const filters = document.getElementById('filters');
 
-    function filteredTasks(){
-      return currentDomain === 'ALL' ? TASKS : TASKS.filter(t=>t.domain === currentDomain);
-    }
-    function toGantt(list){
-      return list.map(t => ({
-        id: t.id, name: t.name, start: t.start, end: t.end, progress: t.progress||0,
-        custom_class: 'bar-' + t.domain
-      }));
-    }
+    Object.entries(DOMAIN_COLORS).forEach(([name, color])=>{{
+      const span = document.createElement('span');
+      span.innerHTML = `<span class="dot" style="background:${{color}}"></span>${{name}}`;
+      legend.appendChild(span);
 
-    // ===== רנדר =====
-    function render(){
-      const el = document.getElementById('gantt');
-      el.innerHTML = "";
-      if(!filteredTasks().length){
-        el.innerHTML = '<div class="text-center text-muted p-4">אין משימות להצגה</div>';
-        return;
-      }
-      gantt = new Gantt("#gantt", toGantt(filteredTasks()), {
-        view_mode: currentView,
-        custom_popup_html: task => {
-          const t = TASKS.find(x=>x.id===task.id) || task;
-          return `<div class="details-container">
-            <div class="fw-bold">${task.name}</div>
-            <div>תחום: ${t.domain||'-'}</div>
-            <div>תאריכים: ${task.start} → ${task.end}</div>
-            <div>התקדמות: ${task.progress??0}%</div>
-          </div>`;
-        }
-      });
-      markToday();
-    }
+      const label = document.createElement('label');
+      label.style.marginInlineEnd = '12px';
+      label.innerHTML = `<input type="checkbox" class="domain-filter" value="${{name}}" checked> ${{name}}`;
+      filters.appendChild(label);
+    }});
 
-    function markToday(){
-      const svg = document.querySelector('#gantt svg');
-      if(!svg) return;
-      const today = new Date(); today.setHours(0,0,0,0);
-      const ticks = svg.querySelectorAll('.lower-text');
-      let x = null;
-      ticks.forEach(t=>{
-        const txt = t.textContent || '';
-        const n = today.getDate();
-        if (String(n) === txt.replace(/[^0-9]/g,'')) {
-          const g = t.closest('g'); if (!g) return;
-          const tr = g.getAttribute('transform');
-          const m = /translate\(([-0-9\.]+),([-0-9\.]+)\)/.exec(tr||'');
-          if (m) x = parseFloat(m[1]);
-        }
-      });
-      if (x!==null){
-        const h = svg.getBBox().height;
-        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-        line.setAttribute('x1', x); line.setAttribute('x2', x);
-        line.setAttribute('y1', 0); line.setAttribute('y2', h);
-        const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-        g.setAttribute('class','today-highlight');
-        g.appendChild(line);
-        svg.appendChild(g);
-      }
-    }
+    // ====== Timeline ======
+    const container = document.getElementById('timeline');
 
-    // ===== יבוא / יצוא =====
-    async function handleFile(file){
-      const name = (file.name||'').toLowerCase();
-      const buf = await file.arrayBuffer();
-      if (name.endsWith('.json')){
-        const text = new TextDecoder().decode(buf);
-        const data = JSON.parse(text);
-        if (!Array.isArray(data)) throw new Error('JSON חייב להיות מערך משימות');
-        TASKS = data.map(normalizeTask);
-        render(); alert('ייבוא JSON הושלם');
-        return;
-      }
-      // XLSX/CSV via SheetJS
-      const wb = XLSX.read(buf, {type:'array'});
-      const sheetName = wb.SheetNames[0];
-      const sheet = wb.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet); // מערך של אובייקטים
-      if (!Array.isArray(rows) || !rows.length) throw new Error('קובץ ריק או לא תקין');
-      TASKS = rows.map(normalizeTask);
-      render(); alert('ייבוא קובץ הושלם');
-    }
+    function itemTemplate(item, element){{
+      const color = DOMAIN_COLORS[item.group] || '#999';
+      element.style.background = color;
+      element.style.borderColor = color;
+      element.style.color = '#fff';
+      element.title = item.title || item.content;
+      return element;
+    }}
 
-    function exportCSV(){
-      const headers = ["id","domain","name","start","end","progress"];
-      const rows = TASKS.map(t=>headers.map(h=>t[h]??""));
-      const csv = [headers, ...rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
-      const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'gantt.csv';
-      a.click();
-    }
+    // Calculate default window from min/max of items
+    const dates = itemsArray.flatMap(it => [new Date(it.start), new Date(it.end)]);
+    const minDate = new Date(Math.min(...dates.map(d=>d.getTime())));
+    const maxDate = new Date(Math.max(...dates.map(d=>d.getTime())));
 
-    // ===== Init =====
-    document.addEventListener('DOMContentLoaded', ()=>{
-      render();
+    const options = {{
+      locale: 'he',
+      orientation: 'top',
+      rtl: true,
+      stack: true,
+      maxHeight: 380,
+      zoomMin: 1000 * 60 * 60 * 24 * 3,
+      zoomMax: 1000 * 60 * 60 * 24 * 366 * 3,
+      start: minDate,
+      end: maxDate,
+      editable: false,
+      margin: {{item:{{horizontal:6, vertical:8}}}},
+      template: itemTemplate,
+      groupOrder: (a,b)=> a.id.localeCompare(b.id, 'he')
+    }};
 
-      document.querySelectorAll('.chip').forEach(c=>{
-        c.addEventListener('click', ()=>{
-          document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
-          c.classList.add('active');
-          currentDomain = c.dataset.domain;
-          render();
-        });
-      });
+    const timeline = new vis.Timeline(container, itemsData, groupsData, options);
 
-      document.getElementById('viewMode').addEventListener('change', (e)=>{
-        currentView = e.target.value;
-        render();
-      });
+    // Zoom controls
+    const ZOOM_STEP = 0.6;
+    function setRange(start, end){{ timeline.setWindow(start, end, {{animation: {{duration:400}}}}); }}
+    function getRange(){{ const r = timeline.getWindow(); return {{start:r.start.valueOf(), end:r.end.valueOf()}}; }}
+    document.getElementById('zoomIn').onclick = ()=>{{ const r=getRange(); const i=r.end-r.start; const ni=i*ZOOM_STEP; const c=r.start+i/2; setRange(c-ni/2, c+ni/2); }};
+    document.getElementById('zoomOut').onclick = ()=>{{ const r=getRange(); const i=r.end-r.start; const ni=i/ZOOM_STEP; const c=r.start+i/2; setRange(c-ni/2, c+ni/2); }};
+    document.getElementById('fitAll').onclick = ()=> setRange(minDate, maxDate);
 
-      document.getElementById('btn-today').addEventListener('click', ()=> render());
+    // ====== Table rendering ======
+    const tableBody = document.querySelector('#tasksTable tbody');
+    const statusClass = s => (s>=100? 's-done' : s>0 ? 's-progress': 's-plan');
 
-      document.getElementById('btn-import').addEventListener('click', ()=>{
-        const input = document.getElementById('file-input');
-        input.value = ""; // reset
-        input.click();
-      });
-      document.getElementById('file-input').addEventListener('change', async (e)=>{
-        const f = e.target.files[0];
-        if(!f) return;
-        try{
-          await handleFile(f);
-        }catch(err){
-          alert('שגיאה בייבוא: ' + (err && err.message ? err.message : err));
-        }
-      });
+    function fmtDate(d){{ return new Date(d).toLocaleDateString('he-IL', {{year:'numeric', month:'2-digit', day:'2-digit'}}); }}
 
-      document.getElementById('btn-export').addEventListener('click', exportCSV);
-    });
+    function renderTable(selected){{
+      tableBody.innerHTML = '';
+      const visible = itemsArray.filter(it => !selected || selected.has(it.group))
+                                .sort((a,b)=> new Date(a.start)-new Date(b.start));
+      visible.forEach((it, idx)=>{{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${{idx+1}}</td>
+          <td><span class="chip"><span class="dot" style="background:${{DOMAIN_COLORS[it.group]||'#999'}}"></span>${{it.group}}</span></td>
+          <td><strong>${{it.content}}</strong></td>
+          <td>${{fmtDate(it.start)}}</td>
+          <td>${{fmtDate(it.end)}}</td>
+          <td><span class="status ${{statusClass(parseInt((it.title||'0').replace(/\\D/g,'')))}}">${{(it.title||'0')}}</span></td>
+          <td><a href="#!" onclick="timeline.focus(${{JSON.stringify(it.id)}});return false;">הצג בגאנט</a></td>
+        `;
+        tableBody.appendChild(tr);
+      }});
+    }}
+    renderTable();
+
+    // Filters
+    function rebuild(){{
+      const selected = new Set([...document.querySelectorAll('.domain-filter')].filter(i=>i.checked).map(i=>i.value));
+      // Update timeline items
+      const filtered = itemsArray.filter(it => selected.has(it.group));
+      timeline.setItems(new vis.DataSet(filtered));
+      timeline.setGroups(groupsData);
+      renderTable(selected);
+    }}
+    document.querySelectorAll('.domain-filter').forEach(el => el.addEventListener('change', rebuild));
   </script>
 </body>
 </html>
+"""
+
+# Save to file
+out_path = Path("/mnt/data/index.html")
+out_path.write_text(html_template, encoding="utf-8")
+
+out_path.as_posix()
